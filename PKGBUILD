@@ -7,7 +7,7 @@ pkgdesc='Sample Firewall using Iptables.'
 arch=('any')
 url='https://github.com/williamcanin/firewall-archlinux.git'
 license=('MIT')
-depends=('iptables' 'systemd' 'kmod' 'squid')
+depends=('iptables' 'systemd' 'kmod')
 source=('firewall.sh' 'firewall.service' 'firewall.conf')
 sha512sums=('SKIP' 'SKIP' 'SKIP')
 
