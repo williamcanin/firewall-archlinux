@@ -11,14 +11,23 @@ Firewall simples.
 # Características:
 
 ✅ Proteção contra inundação SYN
+
 ✅ Prevenção DDoS
+
 ✅ Detecção de varredura de portas
+
 ✅ Anti-spoofing
+
 ✅ Limitação avançada de taxas
+
 ✅ Proteção IPv6
+
 ✅ Encadeamento de pacotes malformados
+
 ✅ Reforço do sistema
+
 ✅ Registro detalhado
+
 ✅ Múltiplos níveis de proteção
 
 # Instalando
