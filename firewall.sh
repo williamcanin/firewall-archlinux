@@ -155,7 +155,7 @@ _on() {
 	if [ "$ANTI_SPOOFING" = "y" ]; then
 		$IPTABLES -A INPUT -s 10.0.0.0/8 -j DROP
 		$IPTABLES -A INPUT -s 172.16.0.0/12 -j DROP
-		$IPTABLES -A INPUT -s 192.168.0.0/16 -j DROP
+		# $IPTABLES -A INPUT -s 192.168.0.0/16 -j DROP
 		$IPTABLES -A INPUT -s 127.0.0.0/8 -j DROP
 		$IPTABLES -A INPUT -s 169.254.0.0/16 -j DROP
 		$IPTABLES -A INPUT -s 224.0.0.0/4 -j DROP
@@ -270,6 +270,10 @@ _on() {
 	echo 0 > /proc/sys/net/ipv4/conf/default/accept_redirects
 	echo 0 > /proc/sys/net/ipv4/conf/all/accept_source_route
 	echo 0 > /proc/sys/net/ipv4/conf/default/accept_source_route
+
+        ### Begin: PUT YOUR OTHER RULES HERE
+
+        ### End: PUT YOUR OTHER RULES HERE
 }
 
 _save() {
