@@ -86,3 +86,9 @@ sudo systemctl restart firewall.service
 ```
 sudo systemctl disable firewall.service
 ```
+
+6 - Editar o script do Firewall:
+
+```
+sudo firewall edit
+```

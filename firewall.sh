@@ -293,6 +293,10 @@ case $1 in
 		echo "Firewall enabled with $PROTECTION_LEVEL protection"
 		echo "Note: Basic configuration file is at \"$CONFIG_FILE\"."
 		;;
+        edit)
+                sudo nano /usr/bin/firewall
+                _save
+        ;;
 	status)
 		echo "=== IPv4 Rules ==="
 		$IPTABLES -L -n -v
@@ -301,7 +305,7 @@ case $1 in
 		$IP6TABLES -L -n -v 2>/dev/null || echo "IPv6 not configured"
 		;;
 	*)
-		echo "Usage: $0 {on|off|status}"
+		echo "Usage: $0 {on|off|edit|status}"
 		echo "Protection level: $PROTECTION_LEVEL"
 		exit 1
 		;;

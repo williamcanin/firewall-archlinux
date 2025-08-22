@@ -1,7 +1,7 @@
 # Maintainer: William C. Canin <william.costa.canin@gmail.com>
 
 pkgname=firewall
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Sample Firewall using Iptables.'
 arch=('any')
