@@ -10,12 +10,7 @@ Firewall simples.
 
 # Instalando
 
-1 - Faça o clone e entre na pasta:
-
-```
-git clone --single-branch https://github.com/williamcanin/firewall-archlinux.git
-cd firewall-archlinux
-```
+1 - Faça o clone deste repositório e entre na pasta do mesmo.
 
 2 - Compile o firewall no **Arch Linux**:
 
