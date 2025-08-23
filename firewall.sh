@@ -57,6 +57,12 @@ export PATH
 		exit 1
 	fi
 
+### Verify INTERFACE_WAN is empty
+	if [ -z "$INTERFACE_WAN" ]; then
+		echo "INTERFACE_WAN is empty. Edit the file \"$CONFIG_FILE\". Aborted!"
+		exit 1
+	fi
+
 ### Load security modules
 	$MODPROBE ip_tables
 	$MODPROBE iptable_nat
@@ -183,8 +189,8 @@ _on() {
 	fi
 
 	### SSH protection with multiple security layers and with specific IP whitelist
-	if [ "$ALLOW_SSH" = "y" ]; then
-		# echo "SSH access enabled for specific IPs"
+	if [ "$ALLOW_SSH" = "y" ] && [ -n "$SSH_CLIENTS_IP" ]; then
+		echo "SSH access enabled for specific IPs"
 		
 		# Criar chains
 		$IPTABLES -N SSH_PROTECT
@@ -203,28 +209,29 @@ _on() {
 		$IPTABLES -A SSH_DENIED -j LOG --log-prefix "SSH-BruteForce: " --log-level 4
 		$IPTABLES -A SSH_DENIED -j DROP
 
-		# Processar cada IP/range da lista
-		if [ -n "$SSH_CLIENTS_IP" ]; then
-			OLD_IFS="$IFS"
-			IFS=","
-			for ip in $SSH_CLIENTS_IP; do
-				ip_clean=$(echo "$ip" | tr -d ' ')
-				if [ -n "$ip_clean" ]; then
-					echo "Allowing SSH from: $ip_clean"
-					$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -s "$ip_clean" -m conntrack --ctstate NEW -j SSH_PROTECT
-				fi
-			done
-			IFS="$OLD_IFS"
-		else
-			echo "Warning: SSH_CLIENTS_IP is empty but ALLOW_SSH=y"
-		fi
+		# PRIMEIRO: Processar cada IP/range da lista (regras específicas vêm primeiro)
+		OLD_IFS="$IFS"
+		IFS=","
+		for ip in $SSH_CLIENTS_IP; do
+			ip_clean=$(echo "$ip" | tr -d ' ')
+			if [ -n "$ip_clean" ]; then
+				echo "Allowing SSH from: $ip_clean"
+				$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -s "$ip_clean" -m conntrack --ctstate NEW -j SSH_PROTECT
+			fi
+		done
+		IFS="$OLD_IFS"
 		
-		# Bloquear todos os outros IPs que tentam acessar SSH
+		# DEPOIS: Bloquear todos os outros IPs (regra geral vem por último)
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied-IP: " --log-level 4
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
 		
+	elif [ "$ALLOW_SSH" = "y" ]; then
+		echo "SSH access enabled for all IPs (no restrictions)"
+		# Permitir SSH de qualquer lugar (com proteção)
+		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j ACCEPT
+		
 	else
-		# echo "SSH access completely disabled"
+		echo "SSH access completely disabled"
 		# Bloquear completamente o SSH
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied: " --log-level 4
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP

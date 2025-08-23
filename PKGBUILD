@@ -1,7 +1,7 @@
 # Maintainer: William C. Canin <william.costa.canin@gmail.com>
 
 pkgname=firewall
-pkgver=0.2.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc='Sample Firewall using Iptables.'
 arch=('any')
@@ -27,6 +27,7 @@ package() {
   install -d "${pkgdir}"/etc
 
   # Extrair a pasta firewall para /etc
+  # Compact with: tar -czf firewall.tar.gz firewall/
   tar -xzf "${srcdir}"/firewall.tar.gz -C "${pkgdir}"/etc/
   
   # Ajustar permissões
