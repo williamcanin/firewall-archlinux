@@ -16,6 +16,9 @@ commands:
 	@echo     (c) 2025 - William Canin - Makefile commands
 
 build:
+	@if [ -f "firewall.tar.gz" ]; then \
+		rm -f firewall.tar.gz; \
+	fi
 	@if [ -d "firewall" ]; then \
 		tar -czf firewall.tar.gz firewall/; \
 		echo "firewall.tar.gz created!"; \

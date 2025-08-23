@@ -237,6 +237,86 @@ _on() {
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
 	fi
 
+	### Samba handlings
+	if [ "$ALLOW_SAMBA" = "y" ] && [ -n "$SAMBA_CLIENTS_IP" ]; then
+		echo "Samba access enabled for specific IPs"
+		
+		# Create chains
+		$IPTABLES -N SAMBA_PROTECT
+		$IPTABLES -N SAMBA_ALLOWED
+		$IPTABLES -N SAMBA_DENIED
+		
+		# Brute force protection
+		$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --set
+		$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --update --seconds 60 --hitcount 10 -j SAMBA_DENIED
+		$IPTABLES -A SAMBA_PROTECT -j SAMBA_ALLOWED
+		
+		$IPTABLES -A SAMBA_ALLOWED -j ACCEPT
+		$IPTABLES -A SAMBA_DENIED -j LOG --log-prefix "Samba-BruteForce: " --log-level 4
+		$IPTABLES -A SAMBA_DENIED -j DROP
+
+		### 🔥 IMPORTANTE: Permitir tráfego ESTABLISHED/RELATED primeiro!
+		# Isto permite as respostas do servidor para o cliente
+		$IPTABLES -A OUTPUT -o $INTERFACE_WAN -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+		# FIRST: Allow specific IPs to Samba ports (INPUT)
+		OLD_IFS="$IFS"
+		IFS=","
+		for ip in $SAMBA_CLIENTS_IP; do
+			ip_clean=$(echo "$ip" | tr -d ' ')
+			if [ -n "$ip_clean" ]; then
+				echo "Allowing Samba from: $ip_clean"
+				
+				# 🔥 UDP ports (NetBIOS)
+				$IPTABLES -A INPUT -p udp --dport 137 -s "$ip_clean" -j SAMBA_PROTECT
+				$IPTABLES -A INPUT -p udp --dport 138 -s "$ip_clean" -j SAMBA_PROTECT
+				
+				# 🔥 TCP ports (SMB)
+				$IPTABLES -A INPUT -p tcp --dport 139 -s "$ip_clean" -j SAMBA_PROTECT
+				$IPTABLES -A INPUT -p tcp --dport 445 -s "$ip_clean" -j SAMBA_PROTECT
+				
+				# 🔥 PERMITIR RESPOSTAS DO SERVIDOR (OUTPUT)
+				$IPTABLES -A OUTPUT -p udp --sport 137 -d "$ip_clean" -j ACCEPT
+				$IPTABLES -A OUTPUT -p udp --sport 138 -d "$ip_clean" -j ACCEPT
+				$IPTABLES -A OUTPUT -p tcp --sport 139 -d "$ip_clean" -m conntrack --ctstate ESTABLISHED -j ACCEPT
+				$IPTABLES -A OUTPUT -p tcp --sport 445 -d "$ip_clean" -m conntrack --ctstate ESTABLISHED -j ACCEPT
+			fi
+		done
+		IFS="$OLD_IFS"
+		
+		# AFTER: Block all other IPs
+		$IPTABLES -A INPUT -p udp --dport 137 -j DROP
+		$IPTABLES -A INPUT -p udp --dport 138 -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 139 -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 445 -j DROP
+		
+	elif [ "$ALLOW_SAMBA" = "y" ]; then
+		echo "Samba access enabled for all IPs"
+		
+		# 🔥 Permitir tráfego estabelecido primeiro
+		$IPTABLES -A OUTPUT -o $INTERFACE_WAN -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+		
+		# Allow all IPs to Samba ports (INPUT)
+		$IPTABLES -A INPUT -p udp --dport 137 -j ACCEPT
+		$IPTABLES -A INPUT -p udp --dport 138 -j ACCEPT
+		$IPTABLES -A INPUT -p tcp --dport 139 -j ACCEPT
+		$IPTABLES -A INPUT -p tcp --dport 445 -j ACCEPT
+		
+		# 🔥 Permitir respostas do servidor (OUTPUT)
+		$IPTABLES -A OUTPUT -p udp --sport 137 -j ACCEPT
+		$IPTABLES -A OUTPUT -p udp --sport 138 -j ACCEPT
+		$IPTABLES -A OUTPUT -p tcp --sport 139 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+		$IPTABLES -A OUTPUT -p tcp --sport 445 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+		
+	else
+		echo "Samba access completely disabled"
+		# Block all Samba access
+		$IPTABLES -A INPUT -p udp --dport 137 -j DROP
+		$IPTABLES -A INPUT -p udp --dport 138 -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 139 -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 445 -j DROP
+	fi
+
 	### SYN Flood protection
 	if [ "$SYN_FLOOD_PROTECTION" = "y" ]; then
 		$IPTABLES -A INPUT -p tcp --syn -j SYN_FLOOD
