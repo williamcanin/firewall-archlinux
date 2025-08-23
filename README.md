@@ -92,7 +92,7 @@ sudo systemctl disable firewall
 sudo firewall config
 ```
 
-6 - Editar/Adicionar novas regras para o Firewall:
+7 - Editar/Adicionar novas regras para o Firewall:
 
 ```
 sudo firewall rules
@@ -100,4 +100,4 @@ sudo firewall rules
 
 
 ---
-(c) William C. Canin - 2025
+(c) 2025 - William C. Canin
