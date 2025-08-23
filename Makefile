@@ -25,7 +25,7 @@ build:
 	fi
 	@makepkg -sf
 
-install:
+install: build
 	@sudo pacman -U firewall-*.zst
 
 commit:
