@@ -318,6 +318,7 @@ _on() {
 	echo 0 > /proc/sys/net/ipv4/conf/all/accept_source_route
 	echo 0 > /proc/sys/net/ipv4/conf/default/accept_source_route
 
+
 		### Samba handling - DEVE vir NO FINAL (após todas as regras gerais)
 	if [ "$ALLOW_SAMBA" = "y" ]; then
 		if [ -n "$SAMBA_CLIENTS_IP" ]; then
