@@ -8,8 +8,9 @@ arch=('any')
 url='https://github.com/williamcanin/firewall-archlinux.git'
 license=('MIT')
 depends=('iptables' 'systemd' 'kmod' 'tar')
+# backup: Protects files from uninstallation
 backup=('etc/firewall/config.conf'
-        'etc/firewall/rules.fw')  # ← Protege os arquivos da desinstalação
+        'etc/firewall/rules.fw')
 source=('firewall.sh'
         'firewall.service'
         'firewall.tar.gz'
