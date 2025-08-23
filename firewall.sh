@@ -232,7 +232,7 @@ _on() {
 		
 	else
 		echo "SSH access completely disabled"
-		# Bloquear completamente o SSH
+		# Completely block SSH
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied: " --log-level 4
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
 	fi
