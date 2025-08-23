@@ -16,6 +16,10 @@ commands:
 	@echo     (c) 2025 - William Canin - Makefile commands
 
 build:
+	@if [ -d "firewall" ]; then \
+		tar -czf firewall.tar.gz firewall/; \
+		echo "firewall.tar.gz created!"; \
+	fi
 	@makepkg -sf
 
 install:
