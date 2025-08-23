@@ -7,33 +7,29 @@ pkgdesc='Sample Firewall using Iptables.'
 arch=('any')
 url='https://github.com/williamcanin/firewall-archlinux.git'
 license=('MIT')
-depends=('iptables' 'systemd' 'kmod')
-source=('firewall.sh' 'firewall.service' 'firewall.conf')
-sha512sums=('SKIP' 'SKIP' 'SKIP')
+depends=('iptables' 'systemd' 'kmod' 'tar')
+backup=('etc/firewall/config.conf'
+        'etc/firewall/rules.fw')  # ← Protege os arquivos da desinstalação
+source=('firewall.sh'
+        'firewall.service'
+        'firewall.tar.gz'
+        'firewall.install')
+sha512sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 package() {
-
-  ### Using copy
-  # mkdir -p "${pkgdir}"/usr/bin
-  # mkdir -p "${pkgdir}"/usr/lib/systemd/system
-  # mkdir -p "${pkgdir}"/etc
-  # cp ${srcdir}/firewall.sh "${pkgdir}"/usr/bin/firewall
-  # chown root:root "${pkgdir}"/usr/bin/firewall
-  # chmod 700 "${pkgdir}"/usr/bin/firewall
-  # chmod +x "${pkgdir}"/usr/bin/firewall
-  # cp ${srcdir}/firewall.service "${pkgdir}"/usr/lib/systemd/system
-  # chown root:root "${pkgdir}"/usr/lib/systemd/system/firewall.service
-  # chmod 700 "${pkgdir}"/usr/lib/systemd/system/firewall.service
-  # cp ${srcdir}/firewall.conf "${pkgdir}"/etc
-  # chown root:root "${pkgdir}"/etc/firewall.conf
-  # chmod 700 "${pkgdir}"/etc/firewall.conf
-
-  # Config
-  install -Dm 644 "${srcdir}"/firewall.conf "${pkgdir}"/etc/firewall.conf
-
-  # Script
+  # Script principal
   install -Dm 700 "${srcdir}"/firewall.sh "${pkgdir}"/usr/bin/firewall
 
-  # Service
+  # Service file
   install -Dm 644 "${srcdir}"/firewall.service -t "${pkgdir}"/usr/lib/systemd/system
+
+  # Criar o diretório /etc primeiro
+  install -d "${pkgdir}"/etc
+
+  # Extrair a pasta firewall para /etc
+  tar -xzf "${srcdir}"/firewall.tar.gz -C "${pkgdir}"/etc/
+  
+  # Ajustar permissões
+  chmod -R 755 "${pkgdir}"/etc/firewall
+  chmod 644 "${pkgdir}"/etc/firewall/*
 }

@@ -45,14 +45,16 @@ export PATH
 	SYSTEMCTL="/usr/bin/systemctl"
 	IPTABLES_RULES="/etc/iptables/iptables.rules"
 	IP6TABLES_RULES="/etc/iptables/ip6tables.rules"
-	CONFIG_FILE="/etc/firewall.conf"
+	CONFIG_FILE="/etc/firewall/config.conf"
+	RULES_FILE="/etc/firewall/rules.fw"
 
 ### Load config
 	if [ -f $CONFIG_FILE ]; then
 		# shellcheck source=/etc/firewall.conf
 		. "$CONFIG_FILE"
 	else
-		echo "File \"$CONFIG_FILE\" not found. Using defaults."
+		echo "Error: File \"$CONFIG_FILE\" not found."
+		exit 1
 	fi
 
 ### Load security modules
@@ -180,14 +182,52 @@ _on() {
 		esac
 	fi
 
-	### SSH protection with multiple security layers
+	### SSH protection with multiple security layers and with specific IP whitelist
 	if [ "$ALLOW_SSH" = "y" ]; then
+		# echo "SSH access enabled for specific IPs"
+		
+		# Criar chains
 		$IPTABLES -N SSH_PROTECT
+		$IPTABLES -N SSH_ALLOWED
+		$IPTABLES -N SSH_DENIED
+		
+		# Chain de proteção contra brute force
 		$IPTABLES -A SSH_PROTECT -m recent --name ssh_attempt --set
-		$IPTABLES -A SSH_PROTECT -m recent --name ssh_attempt --update --seconds 60 --hitcount 4 -j DROP
-		$IPTABLES -A SSH_PROTECT -j ACCEPT
+		$IPTABLES -A SSH_PROTECT -m recent --name ssh_attempt --update --seconds 60 --hitcount 4 -j SSH_DENIED
+		$IPTABLES -A SSH_PROTECT -j SSH_ALLOWED
+		
+		# Chain para IPs permitidos
+		$IPTABLES -A SSH_ALLOWED -j ACCEPT
+		
+		# Chain para IPs negados (com logging)
+		$IPTABLES -A SSH_DENIED -j LOG --log-prefix "SSH-BruteForce: " --log-level 4
+		$IPTABLES -A SSH_DENIED -j DROP
 
-		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j SSH_PROTECT
+		# Processar cada IP/range da lista
+		if [ -n "$SSH_CLIENTS_IP" ]; then
+			OLD_IFS="$IFS"
+			IFS=","
+			for ip in $SSH_CLIENTS_IP; do
+				ip_clean=$(echo "$ip" | tr -d ' ')
+				if [ -n "$ip_clean" ]; then
+					echo "Allowing SSH from: $ip_clean"
+					$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -s "$ip_clean" -m conntrack --ctstate NEW -j SSH_PROTECT
+				fi
+			done
+			IFS="$OLD_IFS"
+		else
+			echo "Warning: SSH_CLIENTS_IP is empty but ALLOW_SSH=y"
+		fi
+		
+		# Bloquear todos os outros IPs que tentam acessar SSH
+		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied-IP: " --log-level 4
+		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
+		
+	else
+		# echo "SSH access completely disabled"
+		# Bloquear completamente o SSH
+		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied: " --log-level 4
+		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
 	fi
 
 	### SYN Flood protection
@@ -271,9 +311,14 @@ _on() {
 	echo 0 > /proc/sys/net/ipv4/conf/all/accept_source_route
 	echo 0 > /proc/sys/net/ipv4/conf/default/accept_source_route
 
-        ### Begin: PUT YOUR OTHER RULES HERE
-
-        ### End: PUT YOUR OTHER RULES HERE
+    ### Begin: Loader rules
+	if [ -f $RULES_FILE ]; then
+		# shellcheck source=/etc/firewall/rules.fw
+		. "$RULES_FILE"
+	else
+		echo "File \"$RULES_FILE\" not found. Using defaults."
+	fi
+	### End: Loader rules
 }
 
 _save() {

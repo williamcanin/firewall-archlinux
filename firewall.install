@@ -1,0 +1,12 @@
+# firewall.install
+post_install() {
+    echo "=== Firewall Installation ==="
+    echo "Configuration folder preserved: /etc/firewall/"
+    echo "Files: config.conf, rules.fw"
+}
+
+pre_remove() {
+    echo "=== Firewall Removal ==="
+    echo "Configuration folder /etc/firewall/ is preserved"
+    echo "Remove manually if desired: rm -rf /etc/firewall/"
+}
