@@ -31,7 +31,7 @@ install:
 commit:
 	$(COMMIT)
 
-push: commit
+push: commit build
 	@git push -u origin
 	@git push -u lab
 	@git push -u hub
