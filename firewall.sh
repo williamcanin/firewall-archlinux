@@ -192,24 +192,24 @@ _on() {
 	if [ "$ALLOW_SSH" = "y" ] && [ -n "$SSH_CLIENTS_IP" ]; then
 		echo "SSH access enabled for specific IPs"
 		
-		# Criar chains
+		# Create chains
 		$IPTABLES -N SSH_PROTECT
 		$IPTABLES -N SSH_ALLOWED
 		$IPTABLES -N SSH_DENIED
 		
-		# Chain de proteção contra brute force
+		# Brute force protection chain
 		$IPTABLES -A SSH_PROTECT -m recent --name ssh_attempt --set
 		$IPTABLES -A SSH_PROTECT -m recent --name ssh_attempt --update --seconds 60 --hitcount 4 -j SSH_DENIED
 		$IPTABLES -A SSH_PROTECT -j SSH_ALLOWED
 		
-		# Chain para IPs permitidos
+		# Chain to allowed IPs
 		$IPTABLES -A SSH_ALLOWED -j ACCEPT
 		
-		# Chain para IPs negados (com logging)
+		# Chain for denied IPs (with logging)
 		$IPTABLES -A SSH_DENIED -j LOG --log-prefix "SSH-BruteForce: " --log-level 4
 		$IPTABLES -A SSH_DENIED -j DROP
 
-		# PRIMEIRO: Processar cada IP/range da lista (regras específicas vêm primeiro)
+		# FIRST: Process each IP/range in the list (specific rules come first)
 		OLD_IFS="$IFS"
 		IFS=","
 		for ip in $SSH_CLIENTS_IP; do
@@ -221,13 +221,13 @@ _on() {
 		done
 		IFS="$OLD_IFS"
 		
-		# DEPOIS: Bloquear todos os outros IPs (regra geral vem por último)
+		# AFTER: Block all other IPs (generally comes last)
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied-IP: " --log-level 4
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
 		
 	elif [ "$ALLOW_SSH" = "y" ]; then
 		echo "SSH access enabled for all IPs (no restrictions)"
-		# Permitir SSH de qualquer lugar (com proteção)
+		# CAUTION: Allow SSH from anywhere (with protection)
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j ACCEPT
 		
 	else
