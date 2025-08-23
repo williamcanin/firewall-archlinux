@@ -313,59 +313,56 @@ _on() {
 	echo 0 > /proc/sys/net/ipv4/conf/default/accept_source_route
 
 	### Samba rules
-	if [ "$ALLOW_SAMBA" = "y" ]; then
-        if [ -n "$SAMBA_CLIENTS_IP" ]; then
-            echo "Samba access enabled for specific IPs"
-            
-            # Create chains
-            $IPTABLES -N SAMBA_PROTECT
-            $IPTABLES -N SAMBA_ALLOWED
-            $IPTABLES -N SAMBA_DENIED
-            
-            # Brute force protection
-            $IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --set
-            $IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --update --seconds 60 --hitcount 10 -j SAMBA_DENIED
-            $IPTABLES -A SAMBA_PROTECT -j SAMBA_ALLOWED
-            
-            $IPTABLES -A SAMBA_ALLOWED -j ACCEPT
+	if [ "$ALLOW_SAMBA" = "y" ] && [ -n "$SAMBA_CLIENTS_IP" ]; then
+		echo "Samba access enabled for specific IPs"
+		
+		# Create chains
+		$IPTABLES -N SAMBA_PROTECT
+		$IPTABLES -N SAMBA_ALLOWED
+		$IPTABLES -N SAMBA_DENIED
+		
+		# Brute force protection
+		$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --set
+		$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --update --seconds 60 --hitcount 10 -j SAMBA_DENIED
+		$IPTABLES -A SAMBA_PROTECT -j SAMBA_ALLOWED
+		
+		$IPTABLES -A SAMBA_ALLOWED -j ACCEPT
 
-            $IPTABLES -A SAMBA_DENIED -j LOG --log-prefix "Samba-BruteForce: " --log-level 4
-            $IPTABLES -A SAMBA_DENIED -j DROP
+		$IPTABLES -A SAMBA_DENIED -j LOG --log-prefix "Samba-BruteForce: " --log-level 4
+		$IPTABLES -A SAMBA_DENIED -j DROP
 
-            # Allows specific IPs
-            OLD_IFS="$IFS"
-            IFS=","
-            for ip in $SAMBA_CLIENTS_IP; do
-                ip_clean=$(echo "$ip" | tr -d ' ')
-                if [ -n "$ip_clean" ]; then
-                    echo "Allowing Samba from: $ip_clean"
-                    $IPTABLES -A INPUT -p udp --dport 137 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
-                    $IPTABLES -A INPUT -p udp --dport 138 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
-                    $IPTABLES -A INPUT -p tcp --dport 139 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
-                    $IPTABLES -A INPUT -p tcp --dport 445 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
-                fi
-            done
-            IFS="$OLD_IFS"
+		# Allows specific IPs
+		OLD_IFS="$IFS"
+		IFS=","
+		for ip in $SAMBA_CLIENTS_IP; do
+			ip_clean=$(echo "$ip" | tr -d ' ')
+			if [ -n "$ip_clean" ]; then
+				echo "Allowing Samba from: $ip_clean"
+				$IPTABLES -A INPUT -p udp --dport 137 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
+				$IPTABLES -A INPUT -p udp --dport 138 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
+				$IPTABLES -A INPUT -p tcp --dport 139 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
+				$IPTABLES -A INPUT -p tcp --dport 445 -s "$ip_clean" -m conntrack --ctstate NEW -j SAMBA_PROTECT
+			fi
+		done
+		IFS="$OLD_IFS"
+		
+		# Block all others IPs
+		$IPTABLES -A INPUT -p tcp --dport 137 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
+		$IPTABLES -A INPUT -p tcp --dport 137 -m conntrack --ctstate NEW -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 138 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
+		$IPTABLES -A INPUT -p tcp --dport 138 -m conntrack --ctstate NEW -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 139 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
+		$IPTABLES -A INPUT -p tcp --dport 139 -m conntrack --ctstate NEW -j DROP
+		$IPTABLES -A INPUT -p tcp --dport 445 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
+		$IPTABLES -A INPUT -p tcp --dport 445 -m conntrack --ctstate NEW -j DROP
             
-            # Block all others IPs
-            $IPTABLES -A INPUT -p tcp --dport 137 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
-		    $IPTABLES -A INPUT -p tcp --dport 137 -m conntrack --ctstate NEW -j DROP
-            $IPTABLES -A INPUT -p tcp --dport 138 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
-		    $IPTABLES -A INPUT -p tcp --dport 138 -m conntrack --ctstate NEW -j DROP
-            $IPTABLES -A INPUT -p tcp --dport 139 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
-		    $IPTABLES -A INPUT -p tcp --dport 139 -m conntrack --ctstate NEW -j DROP
-            $IPTABLES -A INPUT -p tcp --dport 445 -m conntrack --ctstate NEW -j LOG --log-prefix "SAMBA-Denied-IP: " --log-level 4
-		    $IPTABLES -A INPUT -p tcp --dport 445 -m conntrack --ctstate NEW -j DROP
-            
-        else
+    elif [ "$ALLOW_SAMBA" = "y" ]; then
             echo "Samba access enabled for all IPs"
             # Allow all IPs
             $IPTABLES -A INPUT -p udp --dport 137 -m conntrack --ctstate NEW -j ACCEPT
             $IPTABLES -A INPUT -p udp --dport 138 -m conntrack --ctstate NEW -j ACCEPT
             $IPTABLES -A INPUT -p tcp --dport 139 -m conntrack --ctstate NEW -j ACCEPT
             $IPTABLES -A INPUT -p tcp --dport 445 -m conntrack --ctstate NEW -j ACCEPT
-        fi
-        
     else
         echo "Samba access completely disabled"
         # Block all Samba access
