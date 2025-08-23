@@ -188,6 +188,64 @@ _on() {
 		esac
 	fi
 
+	### Samba handling
+	if [ "$ALLOW_SAMBA" = "y" ]; then
+		if [ -n "$SAMBA_CLIENTS_IP" ]; then
+			echo "Samba access enabled for specific IPs"
+			
+			# Create chains
+			$IPTABLES -N SAMBA_PROTECT
+			$IPTABLES -N SAMBA_ALLOWED
+			$IPTABLES -N SAMBA_DENIED
+			
+			# Brute force protection
+			$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --set
+			$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --update --seconds 60 --hitcount 10 -j SAMBA_DENIED
+			$IPTABLES -A SAMBA_PROTECT -j SAMBA_ALLOWED
+			
+			$IPTABLES -A SAMBA_ALLOWED -j ACCEPT
+			$IPTABLES -A SAMBA_DENIED -j LOG --log-prefix "Samba-BruteForce: " --log-level 4
+			$IPTABLES -A SAMBA_DENIED -j DROP
+
+			# PRIMEIRO: Permitir IPs específicos (INSERT no início)
+			OLD_IFS="$IFS"
+			IFS=","
+			for ip in $SAMBA_CLIENTS_IP; do
+				ip_clean=$(echo "$ip" | tr -d ' ')
+				if [ -n "$ip_clean" ]; then
+					echo "Allowing Samba from: $ip_clean"
+					$IPTABLES -I INPUT -p udp --dport 137 -s "$ip_clean" -j SAMBA_PROTECT
+					$IPTABLES -I INPUT -p udp --dport 138 -s "$ip_clean" -j SAMBA_PROTECT
+					$IPTABLES -I INPUT -p tcp --dport 139 -s "$ip_clean" -j SAMBA_PROTECT
+					$IPTABLES -I INPUT -p tcp --dport 445 -s "$ip_clean" -j SAMBA_PROTECT
+				fi
+			done
+			IFS="$OLD_IFS"
+			
+			# DEPOIS: Bloquear todos outros (APPEND no final)
+			$IPTABLES -A INPUT -p udp --dport 137 -j DROP
+			$IPTABLES -A INPUT -p udp --dport 138 -j DROP
+			$IPTABLES -A INPUT -p tcp --dport 139 -j DROP
+			$IPTABLES -A INPUT -p tcp --dport 445 -j DROP
+			
+		else
+			echo "Samba access enabled for all IPs"
+			# Permitir todos IPs
+			$IPTABLES -I INPUT -p udp --dport 137 -j ACCEPT
+			$IPTABLES -I INPUT -p udp --dport 138 -j ACCEPT
+			$IPTABLES -I INPUT -p tcp --dport 139 -j ACCEPT
+			$IPTABLES -I INPUT -p tcp --dport 445 -j ACCEPT
+		fi
+		
+	else
+		echo "Samba access completely disabled"
+		# Bloquear tudo
+		$IPTABLES -I INPUT -p udp --dport 137 -j DROP
+		$IPTABLES -I INPUT -p udp --dport 138 -j DROP
+		$IPTABLES -I INPUT -p tcp --dport 139 -j DROP
+		$IPTABLES -I INPUT -p tcp --dport 445 -j DROP
+	fi
+
 	### SSH protection with multiple security layers and with specific IP whitelist
 	if [ "$ALLOW_SSH" = "y" ] && [ -n "$SSH_CLIENTS_IP" ]; then
 		echo "SSH access enabled for specific IPs"
@@ -235,64 +293,7 @@ _on() {
 		# Completely block SSH
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j LOG --log-prefix "SSH-Denied: " --log-level 4
 		$IPTABLES -A INPUT -p tcp --dport "${SSH_PORT}" -m conntrack --ctstate NEW -j DROP
-	fi
-
-	### Samba handlings
-	if [ "$ALLOW_SAMBA" = "y" ] && [ -n "$SAMBA_CLIENTS_IP" ]; then
-		echo "Samba access enabled for specific IPs"
-		
-		# Create chains
-		$IPTABLES -N SAMBA_PROTECT
-		$IPTABLES -N SAMBA_ALLOWED
-		$IPTABLES -N SAMBA_DENIED
-		
-		# Brute force protection
-		$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --set
-		$IPTABLES -A SAMBA_PROTECT -m recent --name samba_attempt --update --seconds 60 --hitcount 10 -j SAMBA_DENIED
-		$IPTABLES -A SAMBA_PROTECT -j SAMBA_ALLOWED
-		
-		$IPTABLES -A SAMBA_ALLOWED -j ACCEPT
-		$IPTABLES -A SAMBA_DENIED -j LOG --log-prefix "Samba-BruteForce: " --log-level 4
-		$IPTABLES -A SAMBA_DENIED -j DROP
-
-		# Allow specific IPs
-		OLD_IFS="$IFS"
-		IFS=","
-		for ip in $SAMBA_CLIENTS_IP; do
-			ip_clean=$(echo "$ip" | tr -d ' ')
-			if [ -n "$ip_clean" ]; then
-				# -I INPUT 1 = Insert in beagin
-				echo "Allowing Samba from: $ip_clean"
-				$IPTABLES -I INPUT 1 -p udp --dport 137 -s "$ip_clean" -j SAMBA_PROTECT
-				$IPTABLES -I INPUT 1 -p udp --dport 138 -s "$ip_clean" -j SAMBA_PROTECT
-				$IPTABLES -I INPUT 1 -p tcp --dport 139 -s "$ip_clean" -j SAMBA_PROTECT
-				$IPTABLES -I INPUT 1 -p tcp --dport 445 -s "$ip_clean" -j SAMBA_PROTECT
-			fi
-		done
-		IFS="$OLD_IFS"
-		
-		# Block all other IPs
-		$IPTABLES -I INPUT 1 -p udp --dport 137 -j DROP
-		$IPTABLES -I INPUT 1 -p udp --dport 138 -j DROP
-		$IPTABLES -I INPUT 1 -p tcp --dport 139 -j DROP
-		$IPTABLES -I INPUT 1 -p tcp --dport 445 -j DROP
-		
-	elif [ "$ALLOW_SAMBA" = "y" ]; then
-		echo "Samba access enabled for all IPs"
-		# Allow all IPs
-		$IPTABLES -I INPUT 1 -p udp --dport 137 -j ACCEPT
-		$IPTABLES -I INPUT 1 -p udp --dport 138 -j ACCEPT
-		$IPTABLES -I INPUT 1 -p tcp --dport 139 -j ACCEPT
-		$IPTABLES -I INPUT 1 -p tcp --dport 445 -j ACCEPT
-		
-	else
-		echo "Samba access completely disabled"
-		# Block all Samba access
-		$IPTABLES -I INPUT 1 -p udp --dport 137 -j DROP
-		$IPTABLES -I INPUT 1 -p udp --dport 138 -j DROP
-		$IPTABLES -I INPUT 1 -p tcp --dport 139 -j DROP
-		$IPTABLES -I INPUT 1 -p tcp --dport 445 -j DROP
-	fi
+	fi	
 
 	### SYN Flood protection
 	if [ "$SYN_FLOOD_PROTECTION" = "y" ]; then
